@@ -4,6 +4,8 @@ from constant import *
 import cv2
 import json
 import re
+import string
+import numpy as np
 import pytesseract as ts
 
 
@@ -12,123 +14,56 @@ def read_card(encoded):
     prep = preprocessing(image)
     data = ts.image_to_string(prep)
     card = card_classifier(data)
-    return json.dumps(card.__dict__)
+    return json.dumps(card)
 
 
 def preprocessing(image):
-    grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(grayscale, (5, 5), 0)
+    resized = resize(image)
+    grayscale = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(grayscale, (11, 11), 0)
     _, threshold = cv2.threshold(
         blurred, 127, 255, cv2.THRESH_TRUNC+cv2.THRESH_OTSU)
+    kernel = np.ones((2, 2), np.uint8)
+    morph = cv2.morphologyEx(threshold, cv2.MORPH_HITMISS, kernel)
 
-    return threshold
+    return morph
+
+
+def resize(image):
+    scale_percent = 100
+    width = int(image.shape[1] * scale_percent / 100)
+    height = int(image.shape[0] * scale_percent / 100)
+    dim = (width, height)
+    return cv2.resize(image, dim, interpolation=cv2.INTER_CUBIC)
 
 
 def card_classifier(text):
-    if 'NIK' in text:
-        return extract_ktp(text)
-    else:
-        # TODO
-        pass
-
-
-def extract_ktp(text):
     text = remove_punctuation(text)
     lines = text.splitlines()
-
-    ktp = Ktp()
-
-    flag = None
-
+    cards = dict()
     for line in lines:
+        print(line)
+        for key, value in query.items():
+            match = re.search(value, line)
+            if match:
+                cards[key] = word_extractor(match.group(0), 1)
 
-        data, sep = get_data(line)
+    if cards.get('NIK'):
+        cards['Type'] = 'KTP'
+    else:
+        cards['Type'] = 'Other'
 
-        if next((key for key in nik if key in line), False):
-            if sep:
-                ktp.nik = data
-            else:
-                ktp.nik = inline(data, 1)
-        elif next((key for key in name if key in line), False):
-            if sep:
-                ktp.nama = data
-            else:
-                ktp.nama = inline(data, 1)
-            flag = 'name'
-        elif next((key for key in gender if key in line), False):
-            if sep:
-                ktp.jenis_kelamin = inline(data, 0, 1)
-            else:
-                ktp.jenis_kelamin = inline(data, 2, 3)
-        elif next((key for key in birthday if key in line), False):
-            if sep:
-                ktp.ttl = data
-            else:
-                ktp.ttl = inline(data, 2)
-        elif next((key for key in address if key in line), False):
-            if sep:
-                ktp.alamat = data
-            else:
-                ktp.alamat = inline(data, 1)
-            flag = 'addr'
-        elif next((key for key in areas if key in line), False):
-            if next((key for key in neighbourhood if key in line), False):
-                if sep:
-                    ktp.alamat += ' RT/RW {}'.format(data)
-                else:
-                    ktp.alamat += ' RT/RW {}'.format(inline(data, 1))
-            else:
-                if sep:
-                    ktp.alamat += ' {}'.format(data)
-                else:
-                    ktp.alamat += ' {}'.format(inline(data, 1))
-        elif next((key for key in religion if key in line), False):
-            ktp.agama = inline(data, 1, 2)
-        elif next((key for key in status if key in line), False):
-            if sep:
-                ktp.status_perkawinan = inline(data, 0, -1)
-            else:
-                ktp.status_perkawinan = inline(data, 2)
-        elif next((key for key in jobs if key in line), False):
-            if sep:
-                ktp.pekerjaan = data
-            else:
-                ktp.pekerjaan = inline(data, 1)
-        elif next((key for key in citizenship if key in line), False):
-            if sep:
-                ktp.kewarganegaraan = data
-            else:
-                ktp.kewarganegaraan = inline(data, 1)
-        elif next((key for key in validity if key in line), False):
-            if sep:
-                ktp.berlaku_hingga = data
-            else:
-                ktp.berlaku_hingga = inline(data, 2)
-        else:
-            if flag == 'name':
-                ktp.nama += ' {}'.format(data)
-                flag = None
-            elif flag == 'addr':
-                ktp.alamat += ' {}'.format(data)
-                flag = None
-
-    return ktp
+    return cards
 
 
-def get_data(text):
-    if ":" in text:
-        return " ".join(text.split(':')[1:]).strip(), True
-    return text, False
-
-
-def inline(text, start=0, end=0):
+def word_extractor(text, start=0, end=0):
+    splitted = text.split(' ')
     if end == 0:
-        end = len(text.split(' '))
-    return " ".join(text.split(' ')[start:end]).strip()
+        end = len(splitted)
+    return " ".join(splitted[start:end]).strip()
 
 
 def remove_punctuation(text):
-    punctuation = '''!"#$%&'()*+,.;<=>?@[\]^_`{|}~'''
     table = str.maketrans(
-        {key: None for key in punctuation})
+        {key: None for key in string.punctuation})
     return text.translate(table)
