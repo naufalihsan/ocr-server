@@ -1,10 +1,11 @@
-query = dict()
-query['NIK'] = '^NIK\s*\d{16}$'
-query['Nama'] = '^N(a|e)m(a|e)(\s*\w*)*$'
-query['TTL'] = '^(Tempat)?(\/)?Tg(i|l)?(\s)?(Lahr)?(\s*\w*)*$'
-query['Alamat'] = '^Alamat(\s*\w*?)*$'
-query['Status'] = '^Status(\s*[A-Za-z]*)*$'
-query['Pekerjaan'] = '^Pekerjaan(\s*[A-Za-z]*)*$'
-query['Agama'] = '^(Agama)(\s*[A-Za-z]*){1}'
-query['Kewarganegaraan'] = '^Kewarganegaraan(\s*[A-Za-z]*)*$'
-query['Berlaku Hingga'] = '^Berlaku Hingga(\s*[A-Za-z]*)*$'
+ktp = dict()
+ktp['NIK'] = '^NI(K|X)\s*\d{16}$'
+ktp['Nama'] = '^N(a|e)m(a|e)(\s*\w*)*$'
+ktp['TTL'] = '^(Tempat)?(\/)?Tg(i|l)?(\s)?(Lahir)?(\s*\w*)*$'
+ktp['Alamat'] = '^Alamat(\s*\w*?)*$'
+ktp['Status'] = '^Status(\s*[A-Za-z]*)*$'
+ktp['Pekerjaan'] = '^Pekerjaan(\s*[A-Za-z]*)*$'
+ktp['Agama'] = '^(Agama)(\s*[A-Za-z]*){1}'
+ktp['Kewarganegaraan'] = '^Kewarganegaraan(\s*[A-Za-z]*)*$'
+ktp['Berlaku Hingga'] = '^Berlaku Hingga(\s*[A-Za-z]*)*$'
+
