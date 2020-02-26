@@ -1,5 +1,7 @@
-from models import Ktp
-from constant import *
+from joblib import load
+from utils.models import Ktp
+from utils.constant import *
+from utils.pipeline import Pipeline
 
 import cv2
 import json
@@ -9,7 +11,7 @@ import numpy as np
 import pytesseract as ts
 
 
-BLURRED_THRES = 1000
+BLURRED_THRES = 600
 
 
 def read_card(encoded):
@@ -23,19 +25,17 @@ def read_card(encoded):
 
 def region_of_interest(image):
     prep = precropping(image)
-    roi, opt = find_countour(prep, image)
-    if opt:
-        print('masuk')
-        return roi
-    return image
+    roi = find_countour(prep, image)
+    return roi
 
 
 def preprocessing(image):
-    print(image.shape)
+    print('after crop size: ', image.shape)
     resized = resize(image)
+    print('after resized: ', resized.shape)
     grayscale = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
     is_blurred = variance_of_laplacian(grayscale)
-    # print(is_blurred)
+    print('blur', is_blurred)
     if is_blurred < BLURRED_THRES:
         blurred = cv2.GaussianBlur(grayscale, (3, 3), 0)
     else:
@@ -50,22 +50,24 @@ def preprocessing(image):
 
 
 def precropping(image):
+    print('before crop size: ', image.shape)
     dst = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
-    grayscale = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(grayscale, (11, 11), 0)
+    grayscale = cv2.cvtColor(dst, cv2.COLOR_RGB2GRAY)
+    blurred = cv2.GaussianBlur(grayscale, (5, 5), 0)
     _, threshold = cv2.threshold(
-        blurred, 127, 255, cv2.THRESH_TOZERO)
+        blurred, 127, 255, cv2.THRESH_BINARY)
 
     return threshold
 
 
 def find_countour(prep, original):
     contours, _ = cv2.findContours(
-        prep, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        prep, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
     contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
-    copy = original.copy()
-    optimized = False
+    old = original.copy()
+    flag = False
 
     for c in contours:
         peri = cv2.arcLength(c, True)
@@ -74,18 +76,30 @@ def find_countour(prep, original):
             (x, y, w, h) = cv2.boundingRect(approx)
             ar = w / float(h)
             if ar > 1 and ar < 2:
-                roi = copy[y:y + h, x:x + w]
-                optimized = True
+                new = old[y:y + h, x:x + w]
+                if propotional(old, new):
+                    roi = new
+                    flag = True
 
-    return roi, optimized
+    if not flag:
+        roi = old
+
+    return roi
 
 
 def variance_of_laplacian(image):
     return cv2.Laplacian(image, cv2.CV_64F).var()
 
 
+def propotional(old, new):
+    for i in range(2):
+        if new.shape[i] < (old.shape[i] / 4):
+            print('crop too small: ', new.shape[i], old.shape[i])
+            return False
+    return True
+
+
 def resize(image):
-    # print(image.shape)
     scale_percent = scale_image(image.shape[1])
     width = int(image.shape[1] * scale_percent / 100)
     height = int(image.shape[0] * scale_percent / 100)
@@ -101,23 +115,26 @@ def scale_image(width):
 
 
 def card_classifier(text):
-    text = remove_punctuation(text)
-    print(text)
-    lines = text.splitlines()
-    cards = dict()
-    for line in lines:
-        if bool(re.search('(NIK)', text)):
-            cards['Type'] = 'KTP'
-            for key, value in ktp.items():
-                match = re.search(value, line)
-                if match:
-                    cards[key] = word_extractor(match.group(0), 1)
-        elif bool(re.search('(METRO|JAYA)', text)):
-            cards['Type'] = 'SIM'
-        else:
-            cards['Type'] = 'Other'
+    text = remove_punctuation(text).lower()
+    lines = list(filter(None, text.splitlines()))
+    clean = [ word_extractor(l,1) for l in lines ]
+    clf = Pipeline(clean)
+    preds = clf.predicted()
+    # cards = dict()
+    # for line in lines:
+    #     clf.predict()
+    #     if bool(re.search('(NIK)', text)):
+    #         cards['Type'] = 'KTP'
+    #         for key, value in ktp.items():
+    #             match = re.search(value, line)
+    #             if match:
+    #                 cards[key] = word_extractor(match.group(0), 1)
+    #     elif bool(re.search('(METRO|JAYA)', text)):
+    #         cards['Type'] = 'SIM'
+    #     else:
+    #         cards['Type'] = 'Other'
 
-    return cards
+    return preds
 
 
 def word_extractor(text, start=0, end=0):
@@ -128,4 +145,4 @@ def word_extractor(text, start=0, end=0):
 
 
 def remove_punctuation(text):
-    return re.sub(r'([^\s\w]|_)+', '', text)
+    return re.sub(r'([^\s\w]|_)+', ' ', text)

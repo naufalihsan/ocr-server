@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, Response
-from ocr import read_card
+from core.ocr import read_card
 import numpy as np
 
 
