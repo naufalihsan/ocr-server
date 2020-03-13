@@ -1,8 +1,8 @@
 ktp = dict()
-ktp['NIK'] = '^NI(K|X)\s*\d{16}$'
+ktp['NIK'] = '^NI(K|X)\s*\d*'
 ktp['Nama'] = '^N(a|e)m(a|e)(\s*\w*)*$'
 ktp['TTL'] = '^(Tempat)?(\/)?Tg(i|l)?(\s)?(Lahir)?(\s*\w*)*$'
-ktp['Alamat'] = '^Alamat(\s*\w*?)*$'
+ktp['Alamat'] = '^A(l)?amat(\s*\w*?)*$'
 ktp['Status'] = '^Status(\s*[A-Za-z]*)*$'
 ktp['Pekerjaan'] = '^Pekerjaan(\s*[A-Za-z]*)*$'
 ktp['Agama'] = '^(Agama)(\s*[A-Za-z]*){1}'

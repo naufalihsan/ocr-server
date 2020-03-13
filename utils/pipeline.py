@@ -8,6 +8,7 @@ import re
 
 GRADIENT_BOOST = 'core/pretrained/gbc'
 LSTM = 'core/pretrained/lstm'
+CNN = 'core/pretrained/cnn'
 
 
 class Pipeline:
@@ -56,10 +57,27 @@ class Pipeline:
 
         return result
 
+    def cnn_clf(self):
+        tokenizer = load(f'{CNN}/tokenizer.joblib')
+        model = load_model(f'{CNN}/cnn_model.h5')
+        seq = tokenizer.texts_to_sequences(self.textlines)
+        padded = pad_sequences(seq, maxlen=5)
+        predicts = model.predict(padded)
+
+        labels = ['address','name', 'ttl']
+        result = list()
+
+        for text, category in zip(self.textlines, predicts):
+            result.append((text, labels[np.argmax(category)]))
+
+        return result
+
     def classifier(self, model='keras'):
         self.textlines = list(filter(None, self.textlines))
 
-        if model == 'keras':
+        if model == 'lstm':
             return self.lstm_clf()
+        elif model == 'cnn':
+            return self.cnn_clf()
         else:
             return self.gb_clf()

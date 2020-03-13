@@ -1,6 +1,6 @@
 from joblib import load
-from utils.models import Ktp
 from utils.pipeline import Pipeline
+from utils.constant import ktp
 
 import cv2
 import json
@@ -114,20 +114,39 @@ def scale_image(width):
 
 
 def card_classifier(text):
-    print(text)
+    # print(text)
     classifier = dict()
 
-    text = remove_punctuation(text).lower()
+    text = remove_punctuation(text)
     types, prefix = card_type(text)
     lines = text.splitlines()
-    clean = [word_extractor(l, prefix) for l in lines]
-    clf = Pipeline(clean)
-    preds = clf.classifier(model='gbc')
+
+    if 0 :
+        clean = [word_extractor(line, prefix).lower() for line in lines]
+        clf = Pipeline(clean)
+        preds = clf.classifier(model='cnn')
+    else:
+        preds = regex_extractor(lines, types, prefix)
+
 
     classifier['type'] = types
-    classifier['data'] = filter_preds(preds, types)
+    classifier['data'] = preds
+
 
     return classifier
+
+
+def regex_extractor(lines, types, prefix):
+    cards = dict()
+    for line in lines:
+        for key, value in ktp.items():
+            match = re.search(value, line)
+            if match:
+                cards[key] = word_extractor(match.group(0), 1)
+
+    return cards
+
+
 
 
 def filter_preds(preds, types):
