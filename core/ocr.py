@@ -1,6 +1,5 @@
 from joblib import load
 from utils.models import Ktp
-from utils.constant import *
 from utils.pipeline import Pipeline
 
 import cv2
@@ -39,7 +38,7 @@ def preprocessing(image):
     if is_blurred < BLURRED_THRES:
         blurred = cv2.GaussianBlur(grayscale, (3, 3), 0)
     else:
-        blurred = cv2.GaussianBlur(grayscale, (13, 13), 0)
+        blurred = cv2.GaussianBlur(grayscale, (9, 9), 0)
     _, threshold = cv2.threshold(
         blurred, 127, 255, cv2.THRESH_TRUNC+cv2.THRESH_OTSU)
     kernel = np.ones((1, 1), np.uint8)
@@ -115,26 +114,54 @@ def scale_image(width):
 
 
 def card_classifier(text):
-    text = remove_punctuation(text).lower()
-    lines = list(filter(None, text.splitlines()))
-    clean = [ word_extractor(l,1) for l in lines ]
-    clf = Pipeline(clean)
-    preds = clf.predicted()
-    # cards = dict()
-    # for line in lines:
-    #     clf.predict()
-    #     if bool(re.search('(NIK)', text)):
-    #         cards['Type'] = 'KTP'
-    #         for key, value in ktp.items():
-    #             match = re.search(value, line)
-    #             if match:
-    #                 cards[key] = word_extractor(match.group(0), 1)
-    #     elif bool(re.search('(METRO|JAYA)', text)):
-    #         cards['Type'] = 'SIM'
-    #     else:
-    #         cards['Type'] = 'Other'
+    print(text)
+    classifier = dict()
 
-    return preds
+    text = remove_punctuation(text).lower()
+    types, prefix = card_type(text)
+    lines = text.splitlines()
+    clean = [word_extractor(l, prefix) for l in lines]
+    clf = Pipeline(clean)
+    preds = clf.classifier(model='gbc')
+
+    classifier['type'] = types
+    classifier['data'] = filter_preds(preds, types)
+
+    return classifier
+
+
+def filter_preds(preds, types):
+    filtered = dict()
+    lines = 0
+    for pred in preds:
+        entity, category = pred
+        if not category in filtered:
+            filtered[category] = entity
+        elif types == 'KTP' and category == 'name':
+            if lines == 1:
+                filtered['name'] = entity
+            lines += 1
+
+    return filtered
+
+
+def card_type(text):
+    types = None
+    prefix = 0
+
+    # prefix identifier
+    if bool(re.search('(nama|alamat)', text)):
+        prefix = 1
+
+    # card type
+    if bool(re.search('(nik)', text)):
+        types = 'KTP'
+    elif bool(re.search('(metro|jaya)', text)):
+        types = 'SIM'
+    else:
+        types = 'Other'
+
+    return types, prefix
 
 
 def word_extractor(text, start=0, end=0):
