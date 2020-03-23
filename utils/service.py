@@ -18,6 +18,10 @@ def regex_extractor(lines, types, prefix):
     return cards
 
 
+def size_thresh(image):
+    return image.shape[1] < 450
+
+
 def blur_detection(score):
     thres = 600
     normal = 3000

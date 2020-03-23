@@ -21,7 +21,11 @@ def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
     crop = region_of_interest(image)
     prep = preprocessing(crop)
     
-    if orientation:
+    if size_thresh(prep):
+        err = True
+        msg = {'error': f'gambar {image.shape} terlalu kecil'}
+
+    if not err and orientation:
         osd = ts.image_to_osd(prep)
 
         angle = re.search(r'(?<=Rotate: )\d+', osd).group(0)
