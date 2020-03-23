@@ -10,8 +10,6 @@ import numpy as np
 import pytesseract as ts
 
 
-BLURRED_THRES = 600
-
 
 def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
     
@@ -45,16 +43,14 @@ def region_of_interest(image):
     return roi
 
 def preprocessing(image):
-    print('after crop size: ', image.shape)
+    print('after crop size ', image.shape)
     resized = resize(image)
-    print('after resized: ', resized.shape)
+    print('after resized => ', resized.shape)
     grayscale = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-    is_blurred = variance_of_laplacian(grayscale)
-    print('blur', is_blurred)
-    if is_blurred < BLURRED_THRES:
-        blurred = cv2.GaussianBlur(grayscale, (3, 3), 0)
-    else:
-        blurred = cv2.GaussianBlur(grayscale, (11, 11), 0)
+    blur_score = variance_of_laplacian(grayscale)
+    print('blur =>', blur_score)
+    b_scr = blur_detection(blur_score)
+    blurred = cv2.GaussianBlur(grayscale, (b_scr, b_scr), 0)
     _, threshold = cv2.threshold(
         blurred, 127, 255, cv2.THRESH_TRUNC+cv2.THRESH_OTSU)
     kernel = np.ones((1, 1), np.uint8)
@@ -116,7 +112,6 @@ def resize(image):
 
 def card_classifier(text, algorithm, parser):
     classifier = dict()
-
     text = remove_punctuation(text)
     print(text)
     types, prefix = card_type(text)

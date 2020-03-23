@@ -2,34 +2,39 @@ from utils.constant import ktp
 
 import re
 
+
 def regex_extractor(lines, types, prefix):
     cards = dict()
     for line in lines:
         for key, value in ktp.items():
             match = re.search(value, line)
             if match:
-                cards[key] = word_extractor(match.group(0), 1)
+                start = 1
+                end = 0
+                if key in ['TTL']:
+                    start = 3
+                cards[key] = word_extractor(match.group(0), start, end)
 
     return cards
 
+
+def blur_detection(score):
+    thres = 600
+    normal = 3000
+
+    if score > normal:
+        return 5
+    elif score > thres and score < normal:
+        return 11
+    else:
+        return 3
+
+
 def image_orientation(angle):
-    if angle in ['0','180']:
+    if angle in ['0', '180']:
         return True
     return False
 
-# def filter_preds(preds, types):
-#     filtered = dict()
-#     lines = 0
-#     for pred in preds:
-#         entity, category = pred
-#         if not category in filtered:
-#             filtered[category] = entity
-#         elif types == 'KTP' and category == 'name':
-#             if lines == 1:
-#                 filtered['name'] = entity
-#             lines += 1
-
-#     return filtered
 
 def propotional(old, new):
     for i in range(2):
@@ -38,6 +43,7 @@ def propotional(old, new):
             return False
     return True
 
+
 def scale_image(width, height):
     if width > 1000:
         return 80
@@ -45,6 +51,7 @@ def scale_image(width, height):
         return 100
     else:
         return 120
+
 
 def card_type(text):
     types = None
@@ -55,14 +62,15 @@ def card_type(text):
         prefix = 1
 
     # card type
-    if bool(re.search(r'(NIK)', text)):
+    if bool(re.search(r'(NI(K|X))', text)):
         types = 'KTP'
-    elif bool(re.search(r'(Metro|Jaya)', text)):
+    elif bool(re.search(r'(METRO|JAYA)', text)):
         types = 'SIM'
     else:
         types = 'Other'
 
     return types, prefix
+
 
 def word_extractor(text, start=0, end=0):
     splitted = text.split(' ')
@@ -72,4 +80,4 @@ def word_extractor(text, start=0, end=0):
 
 
 def remove_punctuation(text):
-    return re.sub(r'([^\s\w]|_)+', '', text)
+    return re.sub(r'([^\s\w-])+', ' ', text)

@@ -1,11 +1,7 @@
 ktp = dict()
-ktp['NIK'] = '^NI(K|X)\s*\d*'
-ktp['Nama'] = '^N(a|e)m(a|e)(\s*\w*)*$'
-ktp['TTL'] = '^(Tempat)?(\/)?Tg(i|l)?(\s)?(Lahir)?(\s*\w*)*$'
-ktp['Alamat'] = '^A(l)?amat(\s*\w*?)*$'
-ktp['Status'] = '^Status(\s*[A-Za-z]*)*$'
-ktp['Pekerjaan'] = '^Pekerjaan(\s*[A-Za-z]*)*$'
-ktp['Agama'] = '^(Agama)(\s*[A-Za-z]*){1}'
-ktp['Kewarganegaraan'] = '^Kewarganegaraan(\s*[A-Za-z]*)*$'
-ktp['Berlaku Hingga'] = '^Berlaku Hingga(\s*[A-Za-z]*)*$'
-
+ktp['NIK'] = r'^NI(K|X)\s*(\w)*$'
+ktp['Nama'] = r'^N(a|e)m(a|e)(\s*\w*)*$'
+ktp['TTL'] = r'^(T(e|o)mpa(t|l))?(\/|\s)?Tg(i|l)?(i)?(\s)?(La(h|b)?)(ir|w)?(\s*(\w|-)*)*$'
+ktp['Alamat'] = r'^A(l)?(a|t)?mat(\s*\w*?)*$'
+ktp['Pekerjaan'] = r'^Peker(j)?aan(\s*[A-Za-z]*)*$'
+ktp['Agama'] = r'^(Agama)(\s*[A-Za-z]*){1}$'
