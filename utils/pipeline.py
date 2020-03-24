@@ -6,6 +6,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 import numpy as np
 import re
 
+MULTINOMIAL_NB = 'core/pretrained/mnb'
 GRADIENT_BOOST = 'core/pretrained/gbc'
 LSTM = 'core/pretrained/lstm'
 CNN = 'core/pretrained/cnn'
@@ -15,17 +16,22 @@ class Pipeline:
     def __init__(self, textlines):
         self.textlines = textlines
 
-    def word_to_vector(self):
-        count_vect = load(f'{GRADIENT_BOOST}/count_vec.joblib')
-        tfidf_transformer = load(f'{GRADIENT_BOOST}/tfidf_transformer.joblib')
-        counts = count_vect.transform(self.textlines)
-        tfidfs = tfidf_transformer.transform(counts)
-        return tfidfs
+    def word_to_vector(self, model='mnb'):
+        if model == 'gbc':
+            count_vect = load(f'{GRADIENT_BOOST}/count_vec.joblib')
+            tfidf_transformer = load(f'{GRADIENT_BOOST}/tfidf_transformer.joblib')
+            counts = count_vect.transform(self.textlines)
+            tfidfs = tfidf_transformer.transform(counts)
+            return tfidfs
+        else:
+            count_vect = load(f'{MULTINOMIAL_NB}/count_vect.joblib')
+            counts = count_vect.transform(self.textlines)
+            return counts
 
     def gb_clf(self):
         clf = load(f'{GRADIENT_BOOST}/classifier.joblib')
         encoder = load(f'{GRADIENT_BOOST}/encoder.joblib')
-        word_vect = self.word_to_vector()
+        word_vect = self.word_to_vector(model='gbc')
         predicts = clf.predict(word_vect)
 
         group = dict(zip(encoder.transform(
@@ -39,6 +45,22 @@ class Pipeline:
                 category = group[category]
 
             result.append((text, category))
+
+        return result
+
+    def mnb_clf(self):
+        clf = load(f'{MULTINOMIAL_NB}/mnb.joblib')
+        encoder = load(f'{MULTINOMIAL_NB}/encoder.joblib')
+        word_vect = self.word_to_vector(model='mnb')
+        predicts = clf.predict(word_vect)
+
+        group = dict(zip(encoder.transform(
+            encoder.classes_), encoder.classes_))
+
+        result = list()
+        for text, category in zip(self.textlines, predicts):
+            category = group[category]
+            result.append(f'{text} => {category}')
 
         return result
 
@@ -72,12 +94,14 @@ class Pipeline:
 
         return result
 
-    def classifier(self, model='keras'):
+    def classifier(self, model='mnb'):
         self.textlines = list(filter(None, self.textlines))
 
         if model == 'lstm':
             return self.lstm_clf()
         elif model == 'cnn':
             return self.cnn_clf()
+        elif model == 'mnb':
+            return self.mnb_clf()
         else:
             return self.gb_clf()

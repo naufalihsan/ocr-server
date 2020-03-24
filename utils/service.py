@@ -84,4 +84,4 @@ def word_extractor(text, start=0, end=0):
 
 
 def remove_punctuation(text):
-    return re.sub(r'([^\s\w-])+', ' ', text)
+    return re.sub(r'([^\s\w-])+', '', text)

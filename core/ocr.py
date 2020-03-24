@@ -47,7 +47,7 @@ def region_of_interest(image):
     return roi
 
 def preprocessing(image):
-    print('after crop size ', image.shape)
+    print('after crop size =>', image.shape)
     resized = resize(image)
     print('after resized => ', resized.shape)
     grayscale = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
@@ -59,13 +59,12 @@ def preprocessing(image):
         blurred, 127, 255, cv2.THRESH_TRUNC+cv2.THRESH_OTSU)
     kernel = np.ones((1, 1), np.uint8)
     morph = cv2.morphologyEx(threshold, cv2.MORPH_HITMISS, kernel)
-    # bnw = cv2.adaptiveThreshold(morph, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
     return morph
 
 
 def precropping(image):
-    print('before crop size: ', image.shape)
+    print('before crop size =>', image.shape)
     dst = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
     grayscale = cv2.cvtColor(dst, cv2.COLOR_RGB2GRAY)
     blurred = cv2.GaussianBlur(grayscale, (5, 5), 0)
@@ -117,7 +116,6 @@ def resize(image):
 def card_classifier(text, algorithm, parser):
     classifier = dict()
     text = remove_punctuation(text)
-    print(text)
     types, prefix = card_type(text)
     lines = text.splitlines()
 
@@ -129,7 +127,7 @@ def card_classifier(text, algorithm, parser):
         preds = clf.classifier(model=algorithm)
     
     if len(preds) == 0:
-        preds = lines
+        preds = [l for l in lines if len(l) > 2] 
 
     classifier['type'] = types
     classifier['data'] = preds
