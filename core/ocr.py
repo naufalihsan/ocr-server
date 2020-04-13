@@ -10,17 +10,16 @@ import numpy as np
 import pytesseract as ts
 
 
-
 def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
-    
+
     err = False
     msg = None
-    
+
     image = cv2.imdecode(encoded, cv2.IMREAD_UNCHANGED)
 
     crop = region_of_interest(image)
     prep = preprocessing(crop)
-    
+
     if size_thresh(prep):
         err = True
         msg = {'error': f'gambar {image.shape} terlalu kecil'}
@@ -29,7 +28,7 @@ def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
         osd = ts.image_to_osd(prep)
 
         angle = re.search(r'(?<=Rotate: )\d+', osd).group(0)
-        
+
         if not image_orientation(angle):
             err = True
             msg = {'error': f'posisi gambar {angle} derajat'}
@@ -38,13 +37,15 @@ def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
         data = ts.image_to_string(prep)
         result = card_classifier(data, algorithm, parser)
         return json.dumps(result)
-    
+
     return json.dumps(msg)
+
 
 def region_of_interest(image):
     prep = precropping(image)
     roi = find_countour(prep, image)
     return roi
+
 
 def preprocessing(image):
     print('after crop size =>', image.shape)
@@ -106,7 +107,7 @@ def variance_of_laplacian(image):
 
 
 def resize(image):
-    scale_percent = scale_image(image.shape[1],image.shape[0])
+    scale_percent = scale_image(image.shape[1], image.shape[0])
     width = int(image.shape[1] * scale_percent / 100)
     height = int(image.shape[0] * scale_percent / 100)
     dim = (width, height)
@@ -116,6 +117,7 @@ def resize(image):
 def card_classifier(text, algorithm, parser):
     classifier = dict()
     text = remove_punctuation(text)
+    print(text)
     types, prefix = card_type(text)
     lines = text.splitlines()
 
@@ -125,20 +127,11 @@ def card_classifier(text, algorithm, parser):
         clean = [word_extractor(line, prefix).lower() for line in lines]
         clf = Pipeline(clean)
         preds = clf.classifier(model=algorithm)
-    
+
     if len(preds) == 0:
-        preds = [l for l in lines if len(l) > 2] 
+        preds = [l for l in lines if len(l) > 2]
 
     classifier['type'] = types
     classifier['data'] = preds
 
     return classifier
-
-
-
-
-
-
-
-
-
