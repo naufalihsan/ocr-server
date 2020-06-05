@@ -7,6 +7,7 @@ import json
 import re
 import string
 import numpy as np
+import pprint
 import pytesseract as ts
 
 
@@ -17,8 +18,11 @@ def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
 
     image = cv2.imdecode(encoded, cv2.IMREAD_UNCHANGED)
 
-    crop = region_of_interest(image)
-    prep = preprocessing(crop)
+    print('before=>', image.shape)
+
+    obj_card = detect_object(image)
+    obj_card = deskew_object(obj_card)
+    prep = image_processing(obj_card)
 
     if size_thresh(prep):
         err = True
@@ -41,13 +45,81 @@ def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
     return json.dumps(msg)
 
 
-def region_of_interest(image):
-    prep = precropping(image)
-    roi = find_countour(prep, image)
+def detect_object(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, mask = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY)
+    return detect_contour(mask, image)
+
+
+def detect_contour(mask, original):
+    old = original.copy()
+
+    flag = False
+    roi = None
+
+    contours, _ = cv2.findContours(
+        mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    for c in contours:
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.04 * peri, True)
+        if len(approx) == 4:
+            (x, y, w, h) = cv2.boundingRect(approx)
+            ar = w / float(h)
+            if ar > 1.5 and ar < 2:
+                new = old[y:y + h, x:x + w]
+                if propotional(old, new):
+                    roi = new
+                    flag = True
+
+    if not flag:
+        roi = old
+
     return roi
 
 
-def preprocessing(image):
+def detect_skewness(image):
+    _, width = get_image_size(image)
+    blur = cv2.GaussianBlur(image, (5, 5), 0)
+    edges = cv2.Canny(blur, 50, 250, 3, 3)
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180,
+                            100, minLineLength=width / 3.0, maxLineGap=20)
+
+    skewness = 0.0
+    angle = 0.0
+
+    try:
+        nlines = lines.size
+
+        for x1, y1, x2, y2 in lines[0]:
+            angle += np.arctan2(y2 - y1, x2 - x1)
+
+        skewness = (angle / nlines) * 2
+    except Exception as e:
+        print(e)
+
+    print('skew=>', skewness)
+
+    return skewness
+
+
+def deskew_object(image):
+    height, width = get_image_size(image)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    bitwise = cv2.bitwise_not(gray)
+    skew_angle = detect_skewness(bitwise)
+    non_zero_pixels = cv2.findNonZero(bitwise)
+    center, _, _ = cv2.minAreaRect(non_zero_pixels)
+    rotation_matrix = cv2.getRotationMatrix2D(center, skew_angle, 1)
+    rotated = cv2.warpAffine(
+        image, rotation_matrix, (height, width), flags=cv2.INTER_CUBIC)
+    return cv2.getRectSubPix(rotated, (height, width), center)
+
+
+def image_processing(image):
     print('after crop size =>', image.shape)
     resized = resize(image)
     print('after resized => ', resized.shape)
@@ -59,7 +131,7 @@ def preprocessing(image):
     _, threshold = cv2.threshold(
         blurred, 127, 255, cv2.THRESH_TRUNC+cv2.THRESH_OTSU)
     kernel = np.ones((1, 1), np.uint8)
-    morph = cv2.morphologyEx(threshold, cv2.MORPH_HITMISS, kernel)
+    morph = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
 
     return morph
 
@@ -75,43 +147,13 @@ def precropping(image):
     return threshold
 
 
-def find_countour(prep, original):
-    contours, _ = cv2.findContours(
-        prep, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-
-    old = original.copy()
-    flag = False
-
-    for c in contours:
-        peri = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-        if len(approx) == 4:
-            (x, y, w, h) = cv2.boundingRect(approx)
-            ar = w / float(h)
-            if ar > 1 and ar < 2:
-                new = old[y:y + h, x:x + w]
-                if propotional(old, new):
-                    roi = new
-                    flag = True
-
-    if not flag:
-        roi = old
-
-    return roi
-
-
 def variance_of_laplacian(image):
     return cv2.Laplacian(image, cv2.CV_64F).var()
 
 
 def resize(image):
-    scale_percent = scale_image(image.shape[1], image.shape[0])
-    width = int(image.shape[1] * scale_percent / 100)
-    height = int(image.shape[0] * scale_percent / 100)
-    dim = (width, height)
-    return cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+    scale = scale_image(image.shape[1], image.shape[0])
+    return cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
 
 def card_classifier(text, algorithm, parser):
@@ -124,14 +166,13 @@ def card_classifier(text, algorithm, parser):
     if parser == 'regex':
         preds = regex_extractor(lines, types, prefix)
     else:
-        clean = [word_extractor(line, prefix).lower() for line in lines]
+        clean = [word_extractor(line, prefix) for line in lines]
         clf = Pipeline(clean)
         preds = clf.classifier(model=algorithm)
 
-    if len(preds) == 0:
-        preds = [l for l in lines if len(l) > 2]
-
     classifier['type'] = types
     classifier['data'] = preds
+
+    pprint.pprint(classifier)
 
     return classifier

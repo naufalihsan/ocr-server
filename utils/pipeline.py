@@ -3,6 +3,9 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 
+from utils.service import convert_to_dict
+
+
 import numpy as np
 import re
 
@@ -19,7 +22,8 @@ class Pipeline:
     def word_to_vector(self, model='mnb'):
         if model == 'gbc':
             count_vect = load(f'{GRADIENT_BOOST}/count_vec.joblib')
-            tfidf_transformer = load(f'{GRADIENT_BOOST}/tfidf_transformer.joblib')
+            tfidf_transformer = load(
+                f'{GRADIENT_BOOST}/tfidf_transformer.joblib')
             counts = count_vect.transform(self.textlines)
             tfidfs = tfidf_transformer.transform(counts)
             return tfidfs
@@ -59,9 +63,15 @@ class Pipeline:
 
         result = list()
         for text, category in zip(self.textlines, predicts):
-            category = group[category]
-            result.append(f'{text} => {category}')
+            if re.sub(r'\s+', '', text).isnumeric():
+                category = 'nik'
+            else:
+                category = group[category]
 
+            result.append((category, text))
+
+        result = convert_to_dict(result)
+        
         return result
 
     def lstm_clf(self):
@@ -86,7 +96,7 @@ class Pipeline:
         padded = pad_sequences(seq, maxlen=5)
         predicts = model.predict(padded)
 
-        labels = ['address','name', 'ttl']
+        labels = ['address', 'name', 'ttl']
         result = list()
 
         for text, category in zip(self.textlines, predicts):

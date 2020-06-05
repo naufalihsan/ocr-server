@@ -1,6 +1,6 @@
-from utils.constant import ktp
-
 import re
+
+from utils.constant import ktp
 
 
 def regex_extractor(lines, types, prefix):
@@ -23,12 +23,7 @@ def size_thresh(image):
 
 
 def blur_detection(score):
-    thres = 600
-    normal = 3000
-
-    if score > normal:
-        return 5
-    elif score > thres and score < normal:
+    if score > 600 and score < 3000:
         return 11
     else:
         return 3
@@ -49,12 +44,12 @@ def propotional(old, new):
 
 
 def scale_image(width, height):
-    if width > 1000:
-        return 80
-    elif width > 500 and width < 1000:
-        return 100
+    if width > 1200:
+        return 0.9
+    elif width > 600 and width < 1200:
+        return 1
     else:
-        return 120
+        return 1.1
 
 
 def card_type(text):
@@ -77,11 +72,27 @@ def card_type(text):
 
 
 def word_extractor(text, start=0, end=0):
-    splitted = text.split(' ')
+    splitted = text.lower().replace('-', ' ').split(' ')
+    splitted = [w for w in splitted if len(w) > 2 or w.isnumeric()]
+
     if end == 0:
         end = len(splitted)
+
     return " ".join(splitted[start:end]).strip()
 
 
 def remove_punctuation(text):
     return re.sub(r'([^\s\w-])+', '', text)
+
+
+def convert_to_dict(data):
+    card = dict()
+    for k, v in data:
+        if k not in card:
+            if k == 'nik' or 'nik' in card:
+                card[k] = v
+    return card
+
+
+def get_image_size(image):
+    return image.shape[1], image.shape[0]
