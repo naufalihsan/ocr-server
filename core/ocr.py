@@ -1,10 +1,12 @@
 from joblib import load
 from utils.pipeline import Pipeline
 from utils.service import *
+from PIL import Image
 
 import cv2
 import json
 import re
+import tempfile
 import string
 import numpy as np
 import pprint
@@ -17,7 +19,6 @@ def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
     msg = None
 
     image = cv2.imdecode(encoded, cv2.IMREAD_UNCHANGED)
-
     print('before=>', image.shape)
 
     obj_card = detect_object(image)
@@ -77,6 +78,7 @@ def detect_contour(mask, original):
 
     if not flag:
         roi = old
+        print(type(roi))
 
     return roi
 
@@ -84,7 +86,7 @@ def detect_contour(mask, original):
 def detect_skewness(image):
     _, width = get_image_size(image)
     blur = cv2.GaussianBlur(image, (5, 5), 0)
-    edges = cv2.Canny(blur, 50, 250, 3, 3)
+    edges = cv2.Canny(blur, 50, 250)
     lines = cv2.HoughLinesP(edges, 1, np.pi/180,
                             100, minLineLength=width / 3.0, maxLineGap=20)
 
@@ -94,10 +96,12 @@ def detect_skewness(image):
     try:
         nlines = lines.size
 
-        for x1, y1, x2, y2 in lines[0]:
-            angle += np.arctan2(y2 - y1, x2 - x1)
+        for l in range(len(lines)):
+            for x1, y1, x2, y2 in lines[l]:
+                angle += np.arctan2(y2 - y1, x2 - x1)
 
-        skewness = (angle / nlines) * 2
+        skewness = (angle/nlines)
+
     except Exception as e:
         print(e)
 
@@ -110,50 +114,49 @@ def deskew_object(image):
     height, width = get_image_size(image)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     bitwise = cv2.bitwise_not(gray)
-    skew_angle = detect_skewness(bitwise)
+    angle = detect_skewness(bitwise)
     non_zero_pixels = cv2.findNonZero(bitwise)
     center, _, _ = cv2.minAreaRect(non_zero_pixels)
-    rotation_matrix = cv2.getRotationMatrix2D(center, skew_angle, 1)
+    rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
     rotated = cv2.warpAffine(
         image, rotation_matrix, (height, width), flags=cv2.INTER_CUBIC)
     return cv2.getRectSubPix(rotated, (height, width), center)
 
 
 def image_processing(image):
-    print('after crop size =>', image.shape)
-    resized = resize(image)
-    print('after resized => ', resized.shape)
-    grayscale = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+    tempfile = rescale_image(image)
+    rescaled = cv2.imread(tempfile, cv2.IMREAD_UNCHANGED)
+    print("after=>", rescaled.shape)
+    grayscale = cv2.cvtColor(rescaled, cv2.COLOR_BGR2GRAY)
     blur_score = variance_of_laplacian(grayscale)
-    print('blur =>', blur_score)
-    b_scr = blur_detection(blur_score)
-    blurred = cv2.GaussianBlur(grayscale, (b_scr, b_scr), 0)
+    size = blur_detection(blur_score)
+    blurred = cv2.GaussianBlur(grayscale, (size, size), 0)
     _, threshold = cv2.threshold(
-        blurred, 127, 255, cv2.THRESH_TRUNC+cv2.THRESH_OTSU)
+        blurred, 0, 255, cv2.THRESH_TRUNC+cv2.THRESH_OTSU)
     kernel = np.ones((1, 1), np.uint8)
     morph = cv2.morphologyEx(threshold, cv2.MORPH_OPEN, kernel)
 
     return morph
 
 
-def precropping(image):
-    print('before crop size =>', image.shape)
-    dst = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
-    grayscale = cv2.cvtColor(dst, cv2.COLOR_RGB2GRAY)
-    blurred = cv2.GaussianBlur(grayscale, (5, 5), 0)
-    _, threshold = cv2.threshold(
-        blurred, 127, 255, cv2.THRESH_BINARY)
-
-    return threshold
-
-
 def variance_of_laplacian(image):
     return cv2.Laplacian(image, cv2.CV_64F).var()
 
 
-def resize(image):
-    scale = scale_image(image.shape[1], image.shape[0])
-    return cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+def rescale_image(image):
+    im_pil = Image.fromarray(image)
+    width, height = im_pil.size
+    size = get_new_size(width, height)
+
+    try:
+        resized = im_pil.resize(size, Image.BICUBIC)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+        temp_filename = temp_file.name
+        resized.save(temp_filename, dpi=(300, 300))
+    except Exception as e:
+        print(e)
+
+    return temp_filename
 
 
 def card_classifier(text, algorithm, parser):
@@ -167,6 +170,7 @@ def card_classifier(text, algorithm, parser):
         preds = regex_extractor(lines, types, prefix)
     else:
         clean = [word_extractor(line, prefix) for line in lines]
+        print(clean)
         clf = Pipeline(clean)
         preds = clf.classifier(model=algorithm)
 
@@ -176,3 +180,14 @@ def card_classifier(text, algorithm, parser):
     pprint.pprint(classifier)
 
     return classifier
+
+
+def precropping(image):
+    print('before crop size =>', image.shape)
+    dst = cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
+    grayscale = cv2.cvtColor(dst, cv2.COLOR_RGB2GRAY)
+    blurred = cv2.GaussianBlur(grayscale, (5, 5), 0)
+    _, threshold = cv2.threshold(
+        blurred, 127, 255, cv2.THRESH_BINARY)
+
+    return threshold

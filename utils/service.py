@@ -26,7 +26,7 @@ def blur_detection(score):
     if score > 600 and score < 3000:
         return 11
     else:
-        return 3
+        return 5
 
 
 def image_orientation(angle):
@@ -73,7 +73,8 @@ def card_type(text):
 
 def word_extractor(text, start=0, end=0):
     splitted = text.lower().replace('-', ' ').split(' ')
-    splitted = [w for w in splitted if len(w) > 2 or w.isnumeric()]
+    splitted = [w for w in splitted if len(
+        w) > 2 or (w.isnumeric() and int(w) > 9)]
 
     if end == 0:
         end = len(splitted)
@@ -96,3 +97,12 @@ def convert_to_dict(data):
 
 def get_image_size(image):
     return image.shape[1], image.shape[0]
+
+
+def get_image_factor(width):
+    return max(1, float(1600.0 / width))
+
+
+def get_new_size(width, height):
+    factor = get_image_factor(width)
+    return int(factor * width), int(factor * height)

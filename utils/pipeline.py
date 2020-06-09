@@ -70,8 +70,10 @@ class Pipeline:
 
             result.append((category, text))
 
+        print(result)
+
         result = convert_to_dict(result)
-        
+
         return result
 
     def lstm_clf(self):
