@@ -100,7 +100,13 @@ def get_image_size(image):
 
 
 def get_image_factor(width):
-    return max(1, float(1600.0 / width))
+    # print(width)
+    if width < 800:
+        return 2.1
+    elif width >= 800 and width < 1200:
+        return 1.5
+    else:
+        return 1
 
 
 def get_new_size(width, height):

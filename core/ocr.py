@@ -49,7 +49,7 @@ def read_card(encoded, orientation=0, algorithm='gbc', parser='regex'):
 def detect_object(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, mask = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY)
+    _, mask = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return detect_contour(mask, image)
 
 
@@ -86,9 +86,9 @@ def detect_contour(mask, original):
 def detect_skewness(image):
     _, width = get_image_size(image)
     blur = cv2.GaussianBlur(image, (5, 5), 0)
-    edges = cv2.Canny(blur, 50, 250)
+    edges = cv2.Canny(blur, 50, 200)
     lines = cv2.HoughLinesP(edges, 1, np.pi/180,
-                            100, minLineLength=width / 3.0, maxLineGap=20)
+                            100, minLineLength=width / 4.0, maxLineGap=20)
 
     skewness = 0.0
     angle = 0.0
@@ -150,7 +150,7 @@ def rescale_image(image):
 
     try:
         resized = im_pil.resize(size, Image.BICUBIC)
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
         temp_filename = temp_file.name
         resized.save(temp_filename, dpi=(300, 300))
     except Exception as e:
