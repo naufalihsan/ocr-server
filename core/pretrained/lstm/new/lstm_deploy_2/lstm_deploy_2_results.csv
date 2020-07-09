@@ -1,2 +1,0 @@
-,round_epochs,val_loss,val_accuracy,loss,accuracy,batch_size,dropout,epochs,lstm_neuron,optimizer
-0,5,0.045820919115498994,0.9842519760131836,0.013532837642680434,0.9963399171829224,64,0.2,5,100,adam

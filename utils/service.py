@@ -73,8 +73,8 @@ def card_type(text):
 
 def word_extractor(text, start=0, end=0):
     splitted = text.lower().replace('-', ' ').split(' ')
-    splitted = [w for w in splitted if len(
-        w) > 2 or (w.isnumeric() and int(w) > 9)]
+    splitted = [w for w in splitted if len(w) > 2 or (
+        w.isnumeric() and (int(w) > 9 or '0' in w))]
 
     if end == 0:
         end = len(splitted)
@@ -83,15 +83,26 @@ def word_extractor(text, start=0, end=0):
 
 
 def remove_punctuation(text):
-    return re.sub(r'([^\s\w-])+', '', text)
+    return re.sub(r'([^\s\w-])+', ' ', text)
 
 
 def convert_to_dict(data):
     card = dict()
-    for k, v in data:
-        if k not in card:
-            if k == 'nik' or 'nik' in card:
-                card[k] = v
+    _max = 1
+    for e, c in data:
+        if c == 'nik' or 'nik' in card:
+            if c == 'alamat' and 'alamat' in card:
+                if _max > 0:
+                    card[c] += f' {e}'
+                _max -= 1
+            elif c == 'nik' and 'nik' in card:
+                continue
+            elif c == 'nama' and 'nama' in card:
+                continue
+            elif c == 'ttl' and 'ttl' in card:
+                continue
+            else:
+                card[c] = e
     return card
 
 
@@ -100,7 +111,6 @@ def get_image_size(image):
 
 
 def get_image_factor(width):
-    # print(width)
     if width < 800:
         return 2.1
     elif width >= 800 and width < 1200:

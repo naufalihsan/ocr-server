@@ -78,7 +78,6 @@ def detect_contour(mask, original):
 
     if not flag:
         roi = old
-        print(type(roi))
 
     return roi
 
@@ -170,9 +169,8 @@ def card_classifier(text, algorithm, parser):
         preds = regex_extractor(lines, types, prefix)
     else:
         clean = [word_extractor(line, prefix) for line in lines]
-        print(clean)
         clf = Pipeline(clean)
-        preds = clf.classifier(model=algorithm)
+        preds = clf.predicts(model=algorithm)
 
     classifier['type'] = types
     classifier['data'] = preds
